@@ -14,10 +14,9 @@ export interface XlsxFileInfo {
 }
 
 export function findXlsxFile(projectRoot = process.cwd()): XlsxFileInfo | null {
-  const searchDirs = [
-    path.resolve(projectRoot, ".."),
-    path.join(projectRoot, "data"),
-  ]
+  const searchDirs = process.env.VERCEL
+    ? [path.join(projectRoot, "data")]
+    : [path.resolve(projectRoot, ".."), path.join(projectRoot, "data")]
 
   for (const dir of searchDirs) {
     if (!fs.existsSync(dir)) continue

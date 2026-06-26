@@ -44,6 +44,8 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to sync schedule."
 
+    console.error("POST /api/schedule/sync failed:", error)
+
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

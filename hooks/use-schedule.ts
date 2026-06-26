@@ -25,8 +25,13 @@ export function useSchedule() {
   const fetchSchedule = useCallback(async () => {
     try {
       const response = await fetch("/api/schedule", { cache: "no-store" })
-      const data = (await response.json()) as ScheduleData & {
-        error?: string
+      const text = await response.text()
+      let data = {} as ScheduleData & { error?: string }
+
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        throw new Error("일정 API가 JSON 대신 HTML을 반환했습니다. 서버 배포 상태를 확인하세요.")
       }
 
       if (!response.ok) {

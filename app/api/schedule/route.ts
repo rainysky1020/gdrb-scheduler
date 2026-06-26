@@ -6,6 +6,7 @@ import type { ScheduleData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
+export const runtime = "nodejs"
 
 export async function GET() {
   try {
@@ -18,6 +19,7 @@ export async function GET() {
       },
     })
   } catch (error) {
+    console.error("GET /api/schedule failed:", error)
     const message =
       error instanceof Error ? error.message : "Failed to load schedule."
 

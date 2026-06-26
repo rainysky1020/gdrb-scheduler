@@ -70,8 +70,9 @@ async function pushSchedule() {
       try {
         result = JSON.parse(text)
       } catch {
+        const preview = text.replace(/\s+/g, " ").slice(0, 120)
         throw new Error(
-          `서버 응답이 JSON이 아닙니다 (${response.status}). URL이 /api/schedule/sync 인지 확인하세요.`,
+          `서버 응답이 JSON이 아닙니다 (${response.status}): ${preview}`,
         )
       }
     }
