@@ -6,14 +6,10 @@ import type { ScheduleData, ScheduleEvent } from "@/lib/types"
 
 const POLL_INTERVAL_MS = 3000
 
-interface ScheduleResponse extends ScheduleData {
-  updatedAt: string
-  fileMtime: number
-}
-
 export function useSchedule() {
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [source, setSource] = useState("")
+  const [syncMode, setSyncMode] = useState<ScheduleData["syncMode"]>("xlsx")
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +17,7 @@ export function useSchedule() {
   const fetchSchedule = useCallback(async () => {
     try {
       const response = await fetch("/api/schedule", { cache: "no-store" })
-      const data = (await response.json()) as ScheduleResponse & {
+      const data = (await response.json()) as ScheduleData & {
         error?: string
       }
 
@@ -31,6 +27,7 @@ export function useSchedule() {
 
       setEvents(data.events)
       setSource(data.source)
+      setSyncMode(data.syncMode)
       setUpdatedAt(data.updatedAt)
       setError(null)
     } catch (fetchError) {
@@ -53,6 +50,7 @@ export function useSchedule() {
   return {
     events,
     source,
+    syncMode,
     updatedAt,
     isLoading,
     error,

@@ -1,62 +1,10 @@
-import crypto from "crypto"
 import fs from "fs"
 import path from "path"
 
 import * as XLSX from "xlsx"
 
-import type { ScheduleData, ScheduleEvent } from "@/lib/types"
-
-type CellValue = string | number | boolean | Date | null | undefined
-
-function excelDateToISO(value: CellValue): string {
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10)
-  }
-
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-    return value.slice(0, 10)
-  }
-
-  const serial = Number(value)
-  if (!Number.isNaN(serial)) {
-    const parsed = XLSX.SSF.parse_date_code(serial)
-    if (parsed) {
-      const month = String(parsed.m).padStart(2, "0")
-      const day = String(parsed.d).padStart(2, "0")
-      return `${parsed.y}-${month}-${day}`
-    }
-  }
-
-  return String(value)
-}
-
-function excelTimeToString(value: CellValue): string {
-  if (value === "종일") return "종일"
-  if (value === null || value === undefined || value === "") return ""
-
-  if (typeof value === "string") {
-    if (value === "종일") return "종일"
-    if (/^\d{1,2}:\d{2}/.test(value)) return value.slice(0, 5)
-  }
-
-  const fraction = Number(value)
-  if (!Number.isNaN(fraction) && fraction >= 0 && fraction < 1) {
-    const totalMinutes = Math.round(fraction * 24 * 60)
-    const hours = Math.floor(totalMinutes / 60)
-    const minutes = totalMinutes % 60
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
-  }
-
-  return String(value)
-}
-
-function makeId(date: string, time: string, title: string): string {
-  return crypto
-    .createHash("md5")
-    .update(`${date}|${time}|${title}`)
-    .digest("hex")
-    .slice(0, 12)
-}
+import { parseScheduleRows, type CellValue } from "@/lib/schedule-rows"
+import type { ScheduleData } from "@/lib/types"
 
 export function findXlsxFile(projectRoot: string) {
   const searchDirs = [path.join(projectRoot, "data")]
@@ -85,41 +33,9 @@ export function findXlsxFile(projectRoot: string) {
   return null
 }
 
-function parseRows(rows: CellValue[][]): ScheduleEvent[] {
-  const events: ScheduleEvent[] = []
-
-  for (let index = 1; index < rows.length; index += 1) {
-    const row = rows[index]
-    if (!row || !row[0]) continue
-
-    const date = excelDateToISO(row[0])
-    const dayOfWeek = String(row[1] || "")
-    const time = excelTimeToString(row[2])
-    const title = String(row[3] || "")
-    const department = String(row[4] || "")
-    const completed = row[5] === 1 || row[5] === "1" || row[5] === true
-    const notes = String(row[6] || "")
-    const isAllDay = time === "종일"
-
-    events.push({
-      id: makeId(date, time, title),
-      date,
-      dayOfWeek,
-      time,
-      title,
-      department,
-      completed,
-      notes,
-      isAllDay,
-    })
-  }
-
-  return events
-}
-
 export function loadScheduleFromXlsx(
   projectRoot = process.cwd(),
-): ScheduleData & { updatedAt: string; fileMtime: number } {
+): ScheduleData {
   const xlsxFile = findXlsxFile(projectRoot)
 
   if (!xlsxFile) {
@@ -127,13 +43,16 @@ export function loadScheduleFromXlsx(
     if (fs.existsSync(fallbackPath)) {
       const fallback = JSON.parse(
         fs.readFileSync(fallbackPath, "utf-8"),
-      ) as ScheduleData
+      ) as Omit<ScheduleData, "syncMode" | "updatedAt"> & {
+        updatedAt?: string
+      }
       const stat = fs.statSync(fallbackPath)
 
       return {
-        ...fallback,
-        updatedAt: stat.mtime.toISOString(),
-        fileMtime: stat.mtimeMs,
+        source: fallback.source,
+        events: fallback.events,
+        syncMode: "xlsx",
+        updatedAt: fallback.updatedAt ?? stat.mtime.toISOString(),
       }
     }
 
@@ -150,8 +69,8 @@ export function loadScheduleFromXlsx(
 
   return {
     source: xlsxFile.name,
-    events: parseRows(rows),
+    events: parseScheduleRows(rows),
+    syncMode: "xlsx",
     updatedAt: new Date(xlsxFile.mtimeMs).toISOString(),
-    fileMtime: xlsxFile.mtimeMs,
   }
 }

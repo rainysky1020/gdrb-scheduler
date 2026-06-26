@@ -32,7 +32,7 @@ function formatUpdatedAt(value: string | null) {
 }
 
 export default function DashboardPage() {
-  const { events, source, updatedAt, isLoading, error, refresh } =
+  const { events, source, syncMode, updatedAt, isLoading, error, refresh } =
     useSchedule()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [activeTab, setActiveTab] = useState("calendar")
@@ -101,15 +101,19 @@ export default function DashboardPage() {
                 2025년 12월 골든래빗 일정
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                스프레드시트 수정 시 3초 이내 자동 반영됩니다.
+                {syncMode === "google-sheets"
+                  ? "Google Sheets 수정 시 3초 이내 자동 반영됩니다."
+                  : "스프레드시트 수정 시 3초 이내 자동 반영됩니다."}
               </p>
             </div>
             <div className="flex flex-col items-start gap-2 text-xs text-muted-foreground lg:items-end">
               <p>데이터 출처: {source}</p>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-primary animate-pulse" />
-                  실시간 동기화
+                  <span className="size-2 animate-pulse rounded-full bg-primary" />
+                  {syncMode === "google-sheets"
+                    ? "Google Sheets 실시간 연동"
+                    : "실시간 동기화"}
                 </span>
                 <span>마지막 반영: {formatUpdatedAt(updatedAt)}</span>
                 <Button

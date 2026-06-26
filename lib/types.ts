@@ -1,3 +1,5 @@
+export type SyncMode = "google-sheets" | "xlsx"
+
 export interface ScheduleEvent {
   id: string
   date: string
@@ -13,6 +15,8 @@ export interface ScheduleEvent {
 export interface ScheduleData {
   source: string
   events: ScheduleEvent[]
+  syncMode: SyncMode
+  updatedAt: string
 }
 
 export interface ScheduleFilters {
