@@ -6,18 +6,46 @@ import { fileURLToPath } from "url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, "..")
-const parentDir = path.resolve(projectRoot, "..")
+const outputPath = path.join(projectRoot, "data", "schedule.json")
 
-const xlsxFiles = fs
-  .readdirSync(parentDir)
-  .filter((file) => file.endsWith(".xlsx"))
+function findXlsxFile() {
+  const searchDirs = [
+    path.join(projectRoot, "data"),
+    projectRoot,
+    path.resolve(projectRoot, ".."),
+  ]
 
-if (xlsxFiles.length === 0) {
-  console.error(`No xlsx file found in ${parentDir}`)
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue
+
+    const match = fs
+      .readdirSync(dir)
+      .find((file) => file.endsWith(".xlsx"))
+
+    if (match) {
+      return { path: path.join(dir, match), name: match }
+    }
+  }
+
+  return null
+}
+
+const xlsxFile = findXlsxFile()
+
+if (!xlsxFile) {
+  if (fs.existsSync(outputPath)) {
+    console.warn(
+      "No xlsx file found. Using existing data/schedule.json for build.",
+    )
+    process.exit(0)
+  }
+
+  console.error("No xlsx file found and data/schedule.json is missing.")
   process.exit(1)
 }
 
-const xlsxPath = path.join(parentDir, xlsxFiles[0])
+const xlsxPath = xlsxFile.path
+const xlsxFiles = [xlsxFile.name]
 
 function excelDateToISO(value) {
   if (value instanceof Date) {
@@ -105,7 +133,6 @@ for (let index = 1; index < rows.length; index += 1) {
   })
 }
 
-const outputPath = path.join(projectRoot, "data", "schedule.json")
 fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 fs.writeFileSync(
   outputPath,
