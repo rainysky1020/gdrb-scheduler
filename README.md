@@ -1,34 +1,15 @@
 # 골든래빗 일정 대시보드
 
-Google Sheets와 실시간 연동되는 일정 대시보드입니다.
+로컬 xlsx 파일과 실시간 연동되는 일정 대시보드입니다.
 
-## Google Sheets 연동 설정
+## 데이터 파일
 
-1. Google Sheets에 아래 컬럼으로 일정 시트를 만듭니다.
+우선순위:
 
-| 날짜 | 요일 | 시간 | 주요 일정/내용 | 담당 부서 | 진행 상태 (완료 여부) | 비고 |
-|------|------|------|----------------|-----------|----------------------|------|
+1. `../2025년 12월 골든래빗 일정.xlsx` (상위 timetable 폴더)
+2. `data/*.xlsx` (백업용)
 
-2. 시트 공유 설정을 **링크가 있는 모든 사용자 · 뷰어**로 변경합니다.
-
-3. 시트 URL에서 ID를 복사합니다.
-   - 예: `https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit`
-   - ID: `1AbCdEfGhIjKlMnOpQrStUvWxYz`
-
-4. 환경 변수를 설정합니다.
-
-```bash
-cp .env.example .env.local
-```
-
-`.env.local` 예시:
-
-```env
-GOOGLE_SHEETS_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz
-GOOGLE_SHEETS_NAME=2025년 12월 골든래빗 일정
-```
-
-5. Vercel에도 동일한 환경 변수를 추가한 뒤 재배포합니다.
+**상위 폴더의 xlsx를 수정하고 저장하면** 대시보드에 즉시 반영됩니다.
 
 ## 로컬 실행
 
@@ -37,8 +18,10 @@ npm install
 npm run dev
 ```
 
-`GOOGLE_SHEETS_ID`가 없으면 `data/` 폴더의 xlsx 파일을 사용합니다.
+## 실시간 반영 방식
 
-## 실시간 반영
+- 서버가 xlsx 파일 변경을 `fs.watch`로 감지
+- 브라우저는 SSE(`/api/schedule/watch`)로 변경 알림을 받아 즉시 갱신
+- SSE 실패 시 5초마다 폴링으로 백업
 
-브라우저가 3초마다 `/api/schedule`을 호출합니다. Google Sheets를 수정하고 저장하면 대시보드에 자동 반영됩니다.
+Excel에서 파일을 연 채로 저장해도 읽을 수 있도록 임시 복사 후 파싱합니다.

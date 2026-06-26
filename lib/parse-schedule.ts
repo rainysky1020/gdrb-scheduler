@@ -1,4 +1,5 @@
 import fs from "fs"
+import os from "os"
 import path from "path"
 
 import * as XLSX from "xlsx"
@@ -6,12 +7,17 @@ import * as XLSX from "xlsx"
 import { parseScheduleRows, type CellValue } from "@/lib/schedule-rows"
 import type { ScheduleData } from "@/lib/types"
 
-export function findXlsxFile(projectRoot: string) {
-  const searchDirs = [path.join(projectRoot, "data")]
+export interface XlsxFileInfo {
+  path: string
+  name: string
+  mtimeMs: number
+}
 
-  if (process.env.NODE_ENV === "development") {
-    searchDirs.push(path.resolve(projectRoot, ".."))
-  }
+export function findXlsxFile(projectRoot = process.cwd()): XlsxFileInfo | null {
+  const searchDirs = [
+    path.resolve(projectRoot, ".."),
+    path.join(projectRoot, "data"),
+  ]
 
   for (const dir of searchDirs) {
     if (!fs.existsSync(dir)) continue
@@ -22,15 +28,31 @@ export function findXlsxFile(projectRoot: string) {
 
     if (match) {
       const filePath = path.join(dir, match)
+      const stat = fs.statSync(filePath)
       return {
         path: filePath,
         name: match,
-        mtimeMs: fs.statSync(filePath).mtimeMs,
+        mtimeMs: stat.mtimeMs,
       }
     }
   }
 
   return null
+}
+
+function readWorkbook(filePath: string) {
+  try {
+    return XLSX.readFile(filePath)
+  } catch {
+    const tempPath = path.join(
+      os.tmpdir(),
+      `schedule-${Date.now()}.xlsx`,
+    )
+    fs.copyFileSync(filePath, tempPath)
+    const workbook = XLSX.readFile(tempPath)
+    fs.unlinkSync(tempPath)
+    return workbook
+  }
 }
 
 export function loadScheduleFromXlsx(
@@ -43,34 +65,42 @@ export function loadScheduleFromXlsx(
     if (fs.existsSync(fallbackPath)) {
       const fallback = JSON.parse(
         fs.readFileSync(fallbackPath, "utf-8"),
-      ) as Omit<ScheduleData, "syncMode" | "updatedAt"> & {
+      ) as Omit<ScheduleData, "updatedAt" | "fileMtime"> & {
         updatedAt?: string
+        fileMtime?: number
       }
       const stat = fs.statSync(fallbackPath)
 
       return {
         source: fallback.source,
         events: fallback.events,
-        syncMode: "xlsx",
         updatedAt: fallback.updatedAt ?? stat.mtime.toISOString(),
+        fileMtime: fallback.fileMtime ?? stat.mtimeMs,
       }
     }
 
-    throw new Error("No xlsx file or schedule.json found.")
+    throw new Error(
+      "xlsx 파일을 찾을 수 없습니다. 상위 폴더 또는 data/ 폴더를 확인하세요.",
+    )
   }
 
-  const workbook = XLSX.readFile(xlsxFile.path)
+  const workbook = readWorkbook(xlsxFile.path)
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
   const rows = XLSX.utils.sheet_to_json<CellValue[]>(sheet, {
     header: 1,
     raw: true,
     defval: "",
   })
+  const stat = fs.statSync(xlsxFile.path)
 
   return {
     source: xlsxFile.name,
     events: parseScheduleRows(rows),
-    syncMode: "xlsx",
-    updatedAt: new Date(xlsxFile.mtimeMs).toISOString(),
+    updatedAt: stat.mtime.toISOString(),
+    fileMtime: stat.mtimeMs,
   }
+}
+
+export function getWatchedXlsxPath(projectRoot = process.cwd()): string | null {
+  return findXlsxFile(projectRoot)?.path ?? null
 }
