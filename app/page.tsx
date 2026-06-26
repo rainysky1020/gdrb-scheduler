@@ -100,7 +100,7 @@ export default function DashboardPage() {
                 2025년 12월 골든래빗 일정
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                로컬 xlsx 파일을 수정하고 저장하면 즉시 반영됩니다.
+                로컬 xlsx 수정 후 sync 스크립트가 Vercel에 자동 전송합니다.
               </p>
             </div>
             <div className="flex flex-col items-start gap-2 text-xs text-muted-foreground lg:items-end">
@@ -108,7 +108,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1">
                   <span className="size-2 animate-pulse rounded-full bg-primary" />
-                  로컬 xlsx 실시간 연동
+                  로컬 xlsx → Vercel 동기화
                 </span>
                 <span>마지막 반영: {formatUpdatedAt(updatedAt)}</span>
                 <Button

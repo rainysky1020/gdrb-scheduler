@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server"
 
 import { loadScheduleFromXlsx } from "@/lib/parse-schedule"
+import { getLiveSchedule } from "@/lib/schedule-store"
+import type { ScheduleData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export async function GET() {
   try {
-    const schedule = loadScheduleFromXlsx()
+    const live = await getLiveSchedule()
+    const schedule: ScheduleData = live ?? loadScheduleFromXlsx()
 
     return NextResponse.json(schedule, {
       headers: {

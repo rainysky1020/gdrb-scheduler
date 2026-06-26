@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { ScheduleData, ScheduleEvent } from "@/lib/types"
 
-const FALLBACK_POLL_MS = 5000
+const POLL_INTERVAL_MS = 3000
 
 export function useSchedule() {
   const [events, setEvents] = useState<ScheduleEvent[]>([])
@@ -50,29 +50,33 @@ export function useSchedule() {
   useEffect(() => {
     fetchSchedule()
 
-    const eventSource = new EventSource("/api/schedule/watch")
+    let eventSource: EventSource | null = null
 
-    eventSource.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as {
-        type: string
-        mtime?: number
-      }
+    if (process.env.NODE_ENV === "development") {
+      eventSource = new EventSource("/api/schedule/watch")
 
-      if (payload.type === "change" && payload.mtime !== undefined) {
-        if (lastMtimeRef.current !== payload.mtime) {
-          fetchSchedule()
+      eventSource.onmessage = (event) => {
+        const payload = JSON.parse(event.data) as {
+          type: string
+          mtime?: number
+        }
+
+        if (payload.type === "change" && payload.mtime !== undefined) {
+          if (lastMtimeRef.current !== payload.mtime) {
+            fetchSchedule()
+          }
         }
       }
+
+      eventSource.onerror = () => {
+        eventSource?.close()
+      }
     }
 
-    eventSource.onerror = () => {
-      eventSource.close()
-    }
-
-    const intervalId = window.setInterval(fetchSchedule, FALLBACK_POLL_MS)
+    const intervalId = window.setInterval(fetchSchedule, POLL_INTERVAL_MS)
 
     return () => {
-      eventSource.close()
+      eventSource?.close()
       window.clearInterval(intervalId)
     }
   }, [fetchSchedule])
