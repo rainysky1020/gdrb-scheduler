@@ -1,8 +1,12 @@
-import { list } from "@vercel/blob"
+import { get, put } from "@vercel/blob"
 
 import type { ScheduleData } from "@/lib/types"
 
 const LIVE_BLOB_PATH = "schedule/live.json"
+
+function getBlobAccess(): "private" | "public" {
+  return process.env.BLOB_STORE_ACCESS === "public" ? "public" : "private"
+}
 
 export async function getLiveSchedule(): Promise<ScheduleData | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -10,26 +14,26 @@ export async function getLiveSchedule(): Promise<ScheduleData | null> {
   }
 
   try {
-    const { blobs } = await list({ prefix: LIVE_BLOB_PATH, limit: 1 })
-    const blob = blobs.find((item) => item.pathname === LIVE_BLOB_PATH)
+    const result = await get(LIVE_BLOB_PATH, {
+      access: getBlobAccess(),
+    })
 
-    if (!blob) return null
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return null
+    }
 
-    const response = await fetch(blob.url, { cache: "no-store" })
-    if (!response.ok) return null
-
-    return (await response.json()) as ScheduleData
+    const text = await new Response(result.stream).text()
+    return JSON.parse(text) as ScheduleData
   } catch {
     return null
   }
 }
 
 export async function saveLiveSchedule(data: ScheduleData): Promise<void> {
-  const { put } = await import("@vercel/blob")
-
   await put(LIVE_BLOB_PATH, JSON.stringify(data), {
-    access: "public",
+    access: getBlobAccess(),
     contentType: "application/json",
     addRandomSuffix: false,
+    allowOverwrite: true,
   })
 }

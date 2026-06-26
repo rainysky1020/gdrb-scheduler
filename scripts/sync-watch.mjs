@@ -8,8 +8,24 @@ const env = {
   ...process.env,
 }
 
-const syncUrl = env.SYNC_TARGET_URL
+const syncUrl = normalizeSyncUrl(env.SYNC_TARGET_URL)
 const syncSecret = env.SYNC_SECRET
+
+function normalizeSyncUrl(rawUrl) {
+  if (!rawUrl) return rawUrl
+
+  let url = rawUrl.trim().replace(/^https:\/\/https:\/\//, "https://")
+
+  if (!url.startsWith("http")) {
+    url = `https://${url}`
+  }
+
+  if (!url.endsWith("/api/schedule/sync")) {
+    url = url.replace(/\/$/, "") + "/api/schedule/sync"
+  }
+
+  return url
+}
 
 if (!syncUrl || !syncSecret) {
   console.error(`
@@ -48,7 +64,18 @@ async function pushSchedule() {
       body: JSON.stringify(schedule),
     })
 
-    const result = await response.json()
+    const text = await response.text()
+    let result = {}
+    if (text) {
+      try {
+        result = JSON.parse(text)
+      } catch {
+        throw new Error(
+          `서버 응답이 JSON이 아닙니다 (${response.status}). URL이 /api/schedule/sync 인지 확인하세요.`,
+        )
+      }
+    }
+
     if (!response.ok) {
       throw new Error(result.error ?? `Sync failed (${response.status})`)
     }
@@ -58,7 +85,10 @@ async function pushSchedule() {
       `[sync] ${schedule.source} → Vercel (${schedule.events.length}건, ${schedule.updatedAt})`,
     )
   } catch (error) {
-    console.error("[sync] 실패:", error.message)
+    const message = error.cause?.code === "ENOTFOUND"
+      ? `URL에 연결할 수 없습니다. SYNC_TARGET_URL을 확인하세요: ${syncUrl}`
+      : error.message
+    console.error("[sync] 실패:", message)
   } finally {
     syncing = false
   }
